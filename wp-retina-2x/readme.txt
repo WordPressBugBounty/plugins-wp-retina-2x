@@ -1,11 +1,11 @@
-=== Perfect Images ===
+=== Perfect Images: Regenerate Thumbnails, Image Sizes, WebP & AVIF ===
 Contributors: TigrouMeow
 Tags: retina, webp, avif, thumbnails, regenerate
 Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 7.1.1
+Stable tag: 7.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -193,12 +193,13 @@ Yes! Perfect Images lets you disable any registered size—WordPress defaults, t
 
 == Changelog ==
 
-= 7.1.1 (2026/02/21) =
+= 7.1.2 (2026/02/22) =
 * Add: Introduced an AI Assistant to Image Sizes and Retina Images to help recommend optimal sizes.
 * Update: Overhauled the Dashboard and Overview tabs with redesigned size badges, clearer tooltips, a Setup Assistant, convenient module toggles, and a reordered tab flow.
 * Update: Reorganized settings with a new Dev Tools tab, a cleaner Settings layout, polished Easy IO feature cards, GIF Thumbnails now enabled by default under General, and automatic disabling of CDN Domain when Easy IO is active to avoid conflicts.
 * Fix: Improved Regenerate Thumbnails to properly skip disabled sizes, remove leftover ghost thumbnails, label untitled images, wrap size labels more neatly, and unify button text for consistency.
 * Fix: Resolved a compatibility issue where cdn_this() could fail with Polylang domain-per-language setups.
+* Fix: Prevented bulk operations from unnecessarily reloading the media list and stats.
 * 🎵 Discuss with others about Wp Retina 2x on [the Discord](https://discord.gg/bHDGh38).
 * 🌴 Keep us motivated with [a little review here](https://wordpress.org/support/plugin/wp-retina-2x/reviews/). Thank you!
 * 🥰 If you want to help us, check our [Patreon](https://www.patreon.com/meowapps). Thank you!
