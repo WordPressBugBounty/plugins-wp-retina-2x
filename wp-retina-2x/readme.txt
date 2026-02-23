@@ -5,11 +5,11 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 7.1.2
+Stable tag: 7.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-The foundational image management plugin for WordPress. Control image sizes, regenerate thumbnails, enable retina, add modern formats—everything you need for a clean, streamlined media library.
+Optimize image sizes, regenerate thumbnails, enable retina, convert to WebP/AVIF, or use cloud optimization. An essential image toolkit.
 
 == Description ==
 
@@ -192,6 +192,12 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.1.3 (2026/02/23) =
+* Fix: Hotfix to prevent Easy IO and Modern Formats from being enabled at the same time.
+* Fix: Corrected disabled image sizes that were incorrectly shown as pending.
+* Update: Refreshed the Image Tools inspector.
+* Fix: Improved custom size handling by correcting the error message, switching the input to a numeric field, fixing the AI modal height, and updating the default custom size settings.
 
 = 7.1.2 (2026/02/22) =
 * Add: Introduced an AI Assistant to Image Sizes and Retina Images to help recommend optimal sizes.

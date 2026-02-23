@@ -2003,6 +2003,10 @@ class Meow_WR2X_Core {
 					$result[$name] = 'IGNORED';
 					continue;
 				}
+				if ( isset( $attr['enabled'] ) && !$attr['enabled'] ) {
+					$result[$name] = 'IGNORED';
+					continue;
+				}
 				// Check if the file related to this size is present
 				$pathinfo = null;
 				$retina_file = null;
@@ -2038,7 +2042,7 @@ class Meow_WR2X_Core {
 
 		// Full-Size (if required in the settings)
 		$fullsize_required = $this->get_option( "full_size" ) && class_exists( 'MeowPro_WR2X_Core' );
-		$retina_file = trailingslashit( $pathinfo_fullsize['dirname'] ) . $pathinfo_fullsize['filename'] . 
+		$retina_file = trailingslashit( $pathinfo_fullsize['dirname'] ) . $pathinfo_fullsize['filename'] .
 			$this->retina_extension() . $pathinfo_fullsize['extension'];
 		if ( $retina_file && file_exists( $retina_file ) )
 			$result['full-size'] = 'EXISTS';
@@ -2048,16 +2052,16 @@ class Meow_WR2X_Core {
 		if ( $output_type === ARRAY_A ) {
 			$new_results = array();
 			foreach ( $result as $key => $value ) {
-				array_push( $new_results, array( 
+				array_push( $new_results, array(
 					'name' => $key,
 					'shortname' => self::size_shortname( $key ),
 					'status' => is_array( $value ) ? 'CANNOT' : $value,
 					'required' => is_array( $value ) ? $value : null
-					) 
+					)
 				);
 			}
 			return $new_results;
-		} 
+		}
 
 		return $result;
 	}
@@ -2079,6 +2083,10 @@ class Meow_WR2X_Core {
 			foreach ( $sizes as $name => $attr ) {
 				$validSize = !empty( $attr['width'] ) || !empty( $attr['height'] );
 				if ( !$validSize ) {
+					$result[$name] = 'IGNORED';
+					continue;
+				}
+				if ( isset( $attr['enabled'] ) && !$attr['enabled'] ) {
 					$result[$name] = 'IGNORED';
 					continue;
 				}
@@ -2165,6 +2173,10 @@ class Meow_WR2X_Core {
 			foreach ( $sizes as $name => $attr ) {
 				$validSize = !empty( $attr['width'] ) || !empty( $attr['height'] );
 				if ( !$validSize ) {
+					$result[$name] = 'IGNORED';
+					continue;
+				}
+				if ( isset( $attr['enabled'] ) && !$attr['enabled'] ) {
 					$result[$name] = 'IGNORED';
 					continue;
 				}
@@ -2518,6 +2530,15 @@ class Meow_WR2X_Core {
 
 		// Keep hide_retina_dashboard in sync with module_dashboard_enabled
 		$options['hide_retina_dashboard'] = !$options['module_dashboard_enabled'];
+
+		// Both Easy IO and Modern Formats should not be enabled at the same time
+		if ( $options['module_optimize_enabled'] && $options['module_webp_enabled'] ) {
+			if ( !empty( $options['easyio_domain'] ) ) {
+				$options['module_webp_enabled'] = false;
+			} else {
+				$options['module_optimize_enabled'] = false;
+			}
+		}
 
 		// Easy IO auto-disables Modern Formats unless user explicitly forces it
 		if ( !empty( $options['easyio_domain'] ) && !$options['webp_force_with_easyio'] ) {
