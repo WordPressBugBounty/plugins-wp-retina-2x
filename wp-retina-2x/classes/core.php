@@ -69,7 +69,15 @@ class Meow_WR2X_Core {
 		}
 
 		if ( $options['gif_thumbnails_disabled'] ?? false ) {
-			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes' ), 10, 2);
+			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_gif' ), 10, 2);
+		}
+
+		if( $options['avif_thumbnails_disabled'] ?? false ) {
+			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_avif' ), 10, 2);
+		}
+
+		if ( $options['webp_thumbnails_disabled'] ?? false ) {
+			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_webp' ), 10, 2);
 		}
 
 		// Disable Image-Sizes based on Settings.
@@ -231,7 +239,7 @@ class Meow_WR2X_Core {
 		return $sizes;
 	}
 
-	function disable_upload_sizes( $sizes, $metadata ) {
+	function disable_upload_sizes_gif( $sizes, $metadata ) {
 		// Get filetype data.
 		$filetype = wp_check_filetype( $metadata['file'] );
 
@@ -242,6 +250,34 @@ class Meow_WR2X_Core {
 		}
 
 		// Return sizes you want to create from image (None if image is gif.)
+		return $sizes;
+	}
+
+	function disable_upload_sizes_avif( $sizes, $metadata ) {
+		// Get filetype data.
+		$filetype = wp_check_filetype( $metadata['file'] );
+
+		// Check if is avif.
+		if( $filetype['type'] == 'image/avif' ) {
+			// Unset sizes if file is avif.
+			$sizes = array();
+		}
+
+		// Return sizes you want to create from image (None if image is avif.)
+		return $sizes;
+	}
+
+	function disable_upload_sizes_webp( $sizes, $metadata ) {
+		// Get filetype data.
+		$filetype = wp_check_filetype( $metadata['file'] );
+
+		// Check if is webp.
+		if( $filetype['type'] == 'image/webp' ) {
+			// Unset sizes if file is webp.
+			$sizes = array();
+		}
+
+		// Return sizes you want to create from image (None if image is webp.)
 		return $sizes;
 	}
 
@@ -2367,6 +2403,8 @@ class Meow_WR2X_Core {
 			'module_optimize_enabled' => true,
 			'module_ui_enabled' => true,
 			'gif_thumbnails_disabled' => true,
+			'avif_thumbnails_disabled' => false,
+			'webp_thumbnails_disabled' => false,
 			'hide_admin_messages' => false,
 			'logs_path' => null,
 			'custom_image_sizes' => [],
@@ -2384,6 +2422,7 @@ class Meow_WR2X_Core {
 			'webp_retina_sizes' => [],
 			'webp_sizes' => [],
 			'webp_method' => 'none',
+			'webp_ignored_extensions' => ['gif', 'svg', 'bmp', 'tiff'],
 
 			// AI
 			'module_ai_enabled' => false,

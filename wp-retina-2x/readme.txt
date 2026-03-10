@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 7.1.3
+Stable tag: 7.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,10 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.1.4 (2026/03/10) =
+* Add: New options to disable AVIF and WebP thumbnail generation.
+* Add: Ignore list for modern image formats so specific images or paths can be excluded from AVIF and WebP processing.
 
 = 7.1.3 (2026/02/23) =
 * Fix: Hotfix to prevent Easy IO and Modern Formats from being enabled at the same time.
