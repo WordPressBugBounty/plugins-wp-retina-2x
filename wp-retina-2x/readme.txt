@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 6.9
 Requires PHP: 7.4
-Stable tag: 7.1.5
+Stable tag: 7.1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,14 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.1.6 (2026/04/25) =
+* Update: Reworked the ignore workflow for image entries in the dashboard.
+* Fix: Engine functions now correctly check whether an image is set to ignored before processing.
+* Update: Better UI/UX.
+* 🎵 Discuss with others about Wp Retina 2x on [the Discord](https://discord.gg/bHDGh38).
+* 🌴 Keep us motivated with [a little review here](https://wordpress.org/support/plugin/wp-retina-2x/reviews/). Thank you!
+* 🥰 If you want to help us, check our [Patreon](https://www.patreon.com/meowapps). Thank you!
 
 = 7.1.5 (2026/04/15) =
 * Add: Meta box in the attachment editor for regenerating thumbnails directly from the media edit screen.

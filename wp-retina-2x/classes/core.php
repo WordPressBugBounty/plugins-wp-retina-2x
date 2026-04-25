@@ -731,53 +731,32 @@ class Meow_WR2X_Core {
 
 	// IGNORE
 
-	function calculate_ignores_by_search( $search ) {
-		$ids = get_transient( 'wr2x_ignores' );
-		if ( !$ids || !is_array( $ids ) ) {
-			return [];
-		}
-		global $wpdb;
-		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%s' ) );
-		$ignores = $wpdb->get_col( $wpdb->prepare( "
-			SELECT p.ID FROM $wpdb->posts p
-			WHERE ID IN ($placeholders)
-			AND p.post_title LIKE %s
-		", array_merge( $ids, ['%' . $search . '%'] ) ) );
-		return $ignores;
-	}
-
 	function get_ignores( $search = '' ) {
+		global $wpdb;
+		$query = "SELECT DISTINCT pm.post_id FROM $wpdb->postmeta pm
+			INNER JOIN $wpdb->posts p ON pm.post_id = p.ID
+			WHERE pm.meta_key = '_wr2x_ignored'
+			AND pm.meta_value = '1'
+			AND p.post_type = 'attachment'";
 		if ( $search ) {
-			return $this->calculate_ignores_by_search( $search );
+			$query .= $wpdb->prepare( " AND p.post_title LIKE %s", '%' . $search . '%' );
 		}
-		$ignores = get_transient( 'wr2x_ignores' );
-		if ( !$ignores || !is_array( $ignores ) ) {
-			$ignores = array();
-			set_transient( 'wr2x_ignores', $ignores );
-		}
-		return $ignores;
+		return $wpdb->get_col( $query );
 	}
 
 	function is_ignore( $attachmentId ) {
-		$ignores = $this->get_ignores();
-		return in_array( $attachmentId, $ignores );
+		return (bool) get_post_meta( $attachmentId, '_wr2x_ignored', true );
 	}
 
 	function remove_ignore( $attachmentId ) {
-		$ignores = $this->get_ignores();
-		$ignores = array_diff( $ignores, array( $attachmentId ) );
-		set_transient( 'wr2x_ignores', $ignores );
-		return $ignores;
+		delete_post_meta( $attachmentId, '_wr2x_ignored' );
+		return $this->get_ignores();
 	}
 
 	function add_ignore( $attachmentId ) {
-		$ignores = $this->get_ignores();
-		if ( !in_array( $attachmentId, $ignores ) ) {
-			array_push( $ignores, $attachmentId );
-			set_transient( 'wr2x_ignores', $ignores );
-		}
+		update_post_meta( $attachmentId, '_wr2x_ignored', '1' );
 		$this->remove_issue( $attachmentId, true );
-		return $ignores;
+		return $this->get_ignores();
 	}
 
 	// OPTIMIZE ISSUES

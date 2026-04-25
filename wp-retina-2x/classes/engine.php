@@ -129,6 +129,14 @@ class Meow_WR2X_Engine {
 		$issue = false;
 		$id = $this->core->get_attachment_id( $meta['file'] );
 
+		// Check if attachment is ignored
+		$is_ignored = $id ? $this->core->is_ignore( $id ) : false;
+		$is_ignored = apply_filters( 'wr2x_ignore_generate_retina', $is_ignored, $id );
+		if ( $is_ignored ) {
+			$this->core->log( "Attachment {$id} is ignored for generate_retina." );
+			return $meta;
+		}
+
 		/**
 		 * @param $id ID of the attachment whose retina image is to be generated
 		 */
@@ -272,6 +280,14 @@ class Meow_WR2X_Engine {
 
 		$issue = false;
 		$id = $this->core->get_attachment_id( $meta['file'] );
+
+		// Check if attachment is ignored
+		$is_ignored = $id ? $this->core->is_ignore( $id ) : false;
+		$is_ignored = apply_filters( 'wr2x_ignore_generate_webp', $is_ignored, $id );
+		if ( $is_ignored ) {
+			$this->core->log( "Attachment {$id} is ignored for generate_webp." );
+			return $meta;
+		}
 
 		/**
 		 * @param $id ID of the attachment whose web image is to be generated
@@ -492,6 +508,14 @@ class Meow_WR2X_Engine {
 
 		$issue = false;
 		$id = $this->core->get_attachment_id( $meta['file'] );
+
+		// Check if attachment is ignored
+		$is_ignored = $id ? $this->core->is_ignore( $id ) : false;
+		$is_ignored = apply_filters( 'wr2x_ignore_generate_webp_retina', $is_ignored, $id );
+		if ( $is_ignored ) {
+			$this->core->log( "Attachment {$id} is ignored for generate_webp_retina." );
+			return $meta;
+		}
 
 		/**
 		 * @param $id ID of the attachment whose retina image is to be generated
