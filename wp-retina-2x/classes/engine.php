@@ -427,6 +427,11 @@ class Meow_WR2X_Engine {
 							$imagick->writeImage( $webp_file );
 							$imagick->clear();
 							$imagick->destroy();
+							
+							// Ensure correct file permissions (Imagick uses umask which may result in 0660)
+							if ( file_exists( $webp_file ) ) {
+								chmod( $webp_file, 0644 );
+							}
 						} catch ( Exception $e ) {
 							$this->core->log( "❌ [ERROR] Imagick conversion failed for {$name}: " . $e->getMessage() );
 						}

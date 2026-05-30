@@ -3,9 +3,9 @@ Contributors: TigrouMeow
 Tags: retina, webp, avif, thumbnails, regenerate
 Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
-Tested up to: 6.9
+Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 7.1.6
+Stable tag: 7.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,12 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.1.7 (2026/05/30) =
+* Fix: Fixed dashboard styling for NekoUI 2026.
+* Fix: Fixed missing historyReader reference.
+* Fix: Fixed rendering loop with tooltip.
+* Fix: Ensure correct file permissions for generated WebP/AVIF images.
 
 = 7.1.6 (2026/04/25) =
 * Update: Reworked the ignore workflow for image entries in the dashboard.
