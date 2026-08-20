@@ -264,7 +264,7 @@ class Meow_WR2X_Rest
 		wp_update_attachment_metadata( $mediaId, wp_generate_attachment_metadata( $mediaId, $current_file ) );
 		$meta = wp_get_attachment_metadata( $mediaId );
 		$this->engine->generate_retina_images( $meta );
-		$this->engine->generate_webp_images( $meta );
+		$this->engine->generate_modern_format( $meta );
 		$this->engine->generate_webp_retina_images( $meta );
 
 		// Increase the version number
@@ -803,7 +803,7 @@ class Meow_WR2X_Rest
 		$this->engine->delete_webp_attachment( $mediaId, false );
 		$this->engine->delete_webp_retina_attachment( $mediaId, false );
 		$meta = wp_get_attachment_metadata( $mediaId );
-		$this->engine->generate_webp_images( $meta );
+		$this->engine->generate_modern_format( $meta );
 		$this->engine->generate_webp_retina_images( $meta );
 		do_action( 'wr2x_regenerate', $mediaId );
 

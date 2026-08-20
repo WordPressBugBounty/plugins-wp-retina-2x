@@ -68,16 +68,24 @@ class Meow_WR2X_Core {
 			add_filter( 'big_image_size_threshold', array( $this, 'big_image_size_threshold' ) );
 		}
 
+		// WP 7.1 client-side media processing builds sub-sizes in the browser from the list
+		// returned by wp_get_missing_image_subsizes(), and forces intermediate_image_sizes_advanced
+		// to an empty array during that upload. Our size suppression has to be declared on both
+		// filters or it is silently ignored. They share the ( $sizes, $image_meta ) signature,
+		// so the same callbacks work for both.
 		if ( $options['gif_thumbnails_disabled'] ?? false ) {
 			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_gif' ), 10, 2);
+			add_filter( 'wp_get_missing_image_subsizes', array( $this, 'disable_upload_sizes_gif' ), 10, 2);
 		}
 
 		if( $options['avif_thumbnails_disabled'] ?? false ) {
 			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_avif' ), 10, 2);
+			add_filter( 'wp_get_missing_image_subsizes', array( $this, 'disable_upload_sizes_avif' ), 10, 2);
 		}
 
 		if ( $options['webp_thumbnails_disabled'] ?? false ) {
 			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'disable_upload_sizes_webp' ), 10, 2);
+			add_filter( 'wp_get_missing_image_subsizes', array( $this, 'disable_upload_sizes_webp' ), 10, 2);
 		}
 
 		// Disable Image-Sizes based on Settings.
@@ -226,9 +234,14 @@ class Meow_WR2X_Core {
 		$wr2x_disabled_sizes = $this->get_option( 'disabled_sizes', array() );
 		foreach ( $wr2x_disabled_sizes as $size ) {
 			remove_image_size( $size );
-			add_filter( 'image_size_names_choose', array( $this, 'unset_image_sizes' ) );
-			add_filter( 'intermediate_image_sizes_advanced', array( $this, 'unset_image_sizes' ) );
 		}
+		add_filter( 'image_size_names_choose', array( $this, 'unset_image_sizes' ) );
+		add_filter( 'intermediate_image_sizes_advanced', array( $this, 'unset_image_sizes' ) );
+		// remove_image_size() only works for sizes added via add_image_size(), never for the
+		// built-in ones (thumbnail, medium, medium_large, large). Those are suppressed by the
+		// filters alone, so wp_get_missing_image_subsizes() must be covered too: it is what
+		// WP 7.1 client-side processing reads to decide which sub-sizes the browser generates.
+		add_filter( 'wp_get_missing_image_subsizes', array( $this, 'unset_image_sizes' ) );
 	}
 
 	function unset_image_sizes( $sizes ) {
@@ -240,6 +253,12 @@ class Meow_WR2X_Core {
 	}
 
 	function disable_upload_sizes_gif( $sizes, $metadata ) {
+		// wp_get_missing_image_subsizes() can pass metadata without a file (meta error),
+		// and wp_check_filetype( null ) is deprecated in PHP 8.1+.
+		if ( empty( $metadata['file'] ) ) {
+			return $sizes;
+		}
+
 		// Get filetype data.
 		$filetype = wp_check_filetype( $metadata['file'] );
 
@@ -254,6 +273,10 @@ class Meow_WR2X_Core {
 	}
 
 	function disable_upload_sizes_avif( $sizes, $metadata ) {
+		if ( empty( $metadata['file'] ) ) {
+			return $sizes;
+		}
+
 		// Get filetype data.
 		$filetype = wp_check_filetype( $metadata['file'] );
 
@@ -268,6 +291,10 @@ class Meow_WR2X_Core {
 	}
 
 	function disable_upload_sizes_webp( $sizes, $metadata ) {
+		if ( empty( $metadata['file'] ) ) {
+			return $sizes;
+		}
+
 		// Get filetype data.
 		$filetype = wp_check_filetype( $metadata['file'] );
 

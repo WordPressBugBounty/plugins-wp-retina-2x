@@ -3,9 +3,9 @@ Contributors: TigrouMeow
 Tags: retina, webp, avif, thumbnails, regenerate
 Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
-Tested up to: 7.0
-Requires PHP: 7.4
-Stable tag: 7.1.8
+Tested up to: 7.1
+Requires PHP: 8.1
+Stable tag: 7.1.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,13 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.1.9 (2026/08/20) =
+* Add: Plugins board and AI analysis in the dashboard.
+* Update: Minimum PHP version is now 8.1.
+* Update: Native browser dialogs replaced with a NekoUI notice modal.
+* Fix: Disabled image sizes were ignored during WordPress 7.1 client-side uploads.
+* Fix: AVIF files were duplicated as avif.avif on existing AVIF images.
 
 = 7.1.8 (2026/06/29) =
 * Fix: Ensure correct file permissions are set for generated WebP and AVIF images.
