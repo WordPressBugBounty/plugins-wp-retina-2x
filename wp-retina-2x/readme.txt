@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 7.1.9
+Stable tag: 7.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,17 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.2.0 (2026/09/04) =
+* Add: Option to serve all image URLs through Easy IO or the CDN, not only srcset.
+* Update: CDN URL rewriting now applies to images only, so PDFs and other files keep their original URL.
+* Add: Action fired when CDN settings change, allowing Meow Lightbox to clear its cached image URLs.
+* Update: The plugins list now shows the actual license issue instead of a generic label.
+* Fix: Error when media status data was empty.
+* Update: Admin script loading priority and conditions.
+* 🎵 Discuss with others about Wp Retina 2x on [the Discord](https://discord.gg/bHDGh38).
+* 🌴 Keep us motivated with [a little review here](https://wordpress.org/support/plugin/wp-retina-2x/reviews/). Thank you!
+* 🥰 If you want to help us, check our [Patreon](https://www.patreon.com/meowapps). Thank you!
 
 = 7.1.9 (2026/08/20) =
 * Add: Plugins board and AI analysis in the dashboard.

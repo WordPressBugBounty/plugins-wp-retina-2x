@@ -614,10 +614,17 @@ class Meow_WR2X_Rest
 		global $wpdb;
 		$whereIsIn = '';
 		if ( $filterBy !== 'all' ) {
-			$in = array_filter( $this->get_filtered_post_ids( $filterBy ) );
+
+			$filtered = $this->get_filtered_post_ids( $filterBy );
+			if( empty( $filtered ) ) {
+				return array();
+			}
+
+			$in = array_filter( $filtered );
 			if ( empty( $in ) ) {
 				return array();
 			}
+			
 			$whereIsIn = 'AND p.ID IN (' . implode( ',', $in ) . ')';
 		}
 		else {
@@ -965,7 +972,7 @@ class Meow_WR2X_Rest
 		$options['easyio_domain'] = '';
 		$options['easyio_plan'] = '';
 		$options['webp_force_with_easyio'] = false;
-		update_option( $this->core->get_option_name(), $options );
+		$this->core->update_options( $options );
 		return new WP_REST_Response([ 'success' => true ], 200 );
 	}
 
@@ -993,7 +1000,7 @@ class Meow_WR2X_Rest
 					if ( !empty( $response['plan_id'] ) ) {
 						$options['easyio_plan'] = (int)$response['plan_id'];
 					}
-					update_option( $this->core->get_option_name(), $options );
+					$this->core->update_options( $options );
 
 					// Clear cache
 					// From https://github.com/nosilver4u/ewww-image-optimizer/blob/master/classes/class-exactdn.php#L298

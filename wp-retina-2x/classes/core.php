@@ -55,6 +55,16 @@ class Meow_WR2X_Core {
 		add_filter( 'wp_calculate_image_srcset', array( $this, 'replace_with_webp_in_srcset' ), 1000, 5 );
 		add_filter( 'wp_get_attachment_image_src', array( $this,'replace_with_webp_in_src' ), 1000, 4 );
 
+		// By default the CDN is only applied to the srcset candidates, so the plain src of
+		// an image, og:image, download links and anything built from wp_get_attachment_url()
+		// keeps hitting the origin. This opt-in extends it to those URLs. Priority 1001 so
+		// replace_with_webp_in_src() still receives an origin URL it can map to a file.
+		$has_cdn = !empty( $options['easyio_domain'] ) || !empty( $options['cdn_domain'] );
+		if ( $has_cdn && ( $options['cdn_all_urls'] ?? false ) ) {
+			add_filter( 'wp_get_attachment_url', array( $this, 'cdn_attachment_url' ), 1001, 2 );
+			add_filter( 'wp_get_attachment_image_src', array( $this, 'cdn_attachment_image_src' ), 1001, 2 );
+		}
+
 		add_action( 'after_setup_theme', array( $this, 'add_image_sizes' ) );
 
 		if ( $options['image_replace'] ) {
@@ -562,15 +572,10 @@ class Meow_WR2X_Core {
 			return $image;
 		}
 
-		$upload_dir = wp_upload_dir();
-		$pathinfo = pathinfo( $image[0] );
-		$filename = $pathinfo['basename'];
-		$webp_filename = $filename . $this->webp_avif_extension();
-		
-		$webp_path = trailingslashit( $upload_dir['path'] ) . $webp_filename;
+		$webp_url = $image[0] . $this->webp_avif_extension();
 
-		if ( file_exists( $webp_path ) ) {
-			$image[0] =  trailingslashit( $pathinfo['dirname'] ) . $webp_filename;
+		if ( $this->from_url_to_system( $webp_url ) ) {
+			$image[0] = $webp_url;
 		}
 
 		return $image;
@@ -1280,6 +1285,52 @@ class Meow_WR2X_Core {
 		return '/' . str_replace( $current_blog, '', $path );
 	}
 
+	// Front-end only: editors, REST clients and cron jobs keep the origin URLs, otherwise
+	// the media library, the block editor and third-party APIs would receive CDN URLs and
+	// could store them. REST_REQUEST is only defined once the request is parsed, which is
+	// why this is checked at call time rather than when the filters are registered.
+	function is_frontend_request() {
+		if ( is_admin() || wp_doing_ajax() || wp_doing_cron() ) {
+			return false;
+		}
+		if ( defined( 'REST_REQUEST' ) && REST_REQUEST ) {
+			return false;
+		}
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			return false;
+		}
+		return true;
+	}
+
+	function cdn_attachment_url( $url, $attachment_id ) {
+		if ( !$this->is_frontend_request() || !$this->is_cdn_url_allowed( $url, $attachment_id ) ) {
+			return $url;
+		}
+		return $this->cdn_this( $url, $attachment_id );
+	}
+
+	function cdn_attachment_image_src( $image, $attachment_id ) {
+		if ( is_array( $image ) && !empty( $image[0] ) && $this->is_frontend_request()
+			&& $this->is_cdn_url_allowed( $image[0], $attachment_id ) ) {
+			$image[0] = $this->cdn_this( $image[0], $attachment_id );
+		}
+		return $image;
+	}
+
+	// wp_get_attachment_url() is used for every attachment, not only images: PDFs, zips,
+	// audio, files sold through EDD or WooCommerce... An image CDN like Easy IO either
+	// 404s on those or proxies them for nothing, so only images are rewritten.
+	function is_cdn_url_allowed( $url, $attachment_id = null ) {
+		$mime = !empty( $attachment_id ) ? get_post_mime_type( $attachment_id ) : false;
+		if ( empty( $mime ) ) {
+			$path = parse_url( $url, PHP_URL_PATH );
+			$filetype = wp_check_filetype( $path ? basename( $path ) : '' );
+			$mime = $filetype['type'];
+		}
+		$allowed = !empty( $mime ) && strpos( $mime, 'image/' ) === 0;
+		return apply_filters( 'wr2x_cdn_url_allowed', $allowed, $url, $attachment_id, $mime );
+	}
+
 	// Rename this filename with CDN
 	function cdn_this( $url, $mediaId = null ) {
 
@@ -1329,7 +1380,8 @@ class Meow_WR2X_Core {
 		}
 
 		$this->log( "URL before CDN: $url" );
-		$queryUrl = !empty( $cdn_params ) ? ( '?' . http_build_query( $cdn_params ) ) : '';
+		$separator = empty( $parsed_url['query'] ) ? '?' : '&';
+		$queryUrl = !empty( $cdn_params ) ? ( $separator . http_build_query( $cdn_params ) ) : '';
 		$url_host = $parsed_url['host'];
 		$new_url = str_replace( '//' . $url_host, '//' . $cdn_domain, $url ) . $queryUrl;
 		$this->log( "URL with CDN: $new_url" );
@@ -2398,6 +2450,7 @@ class Meow_WR2X_Core {
 			'over_http_check' => false,
 			'easyio_domain' => '',
 			'cdn_domain' => '',
+			'cdn_all_urls' => false,
 			'easyio_lossless' => '',
 			'debug' => false,
 			'logs' => false,
@@ -2547,11 +2600,30 @@ class Meow_WR2X_Core {
 	}
 
 	function update_options( $options ) {
+		$old_options = $this->get_all_options();
 		if ( !update_option( $this->option_name, $options, false ) ) {
 			return false;
 		}
 		$options = $this->sanitize_options();
+		$this->notify_cdn_settings_changed( $old_options, $options );
 		return $options;
+	}
+
+	// Other plugins cache image URLs (Meow Lightbox keeps them in transients for a day),
+	// so they need to know when the CDN goes on, off or changes domain.
+	function notify_cdn_settings_changed( $old_options, $new_options ) {
+		$keys = array( 'easyio_domain', 'cdn_domain', 'cdn_all_urls' );
+		$changed = array();
+		foreach ( $keys as $key ) {
+			$old = $old_options[$key] ?? null;
+			$new = $new_options[$key] ?? null;
+			if ( (string)$old !== (string)$new && !( empty( $old ) && empty( $new ) ) ) {
+				$changed[$key] = array( 'old' => $old, 'new' => $new );
+			}
+		}
+		if ( !empty( $changed ) ) {
+			do_action( 'wr2x_cdn_settings_changed', $changed, $new_options );
+		}
 	}
 
 	function update_option( $option, $value ) {

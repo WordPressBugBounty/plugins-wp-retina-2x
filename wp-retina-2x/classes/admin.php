@@ -13,12 +13,18 @@ class Meow_WR2X_Admin extends MeowKit_WR2X_Admin {
 		if ( is_admin() ) {
 			add_action( 'admin_menu', array( $this, 'app_menu' ) );
 			add_action( 'admin_notices', array( $this, 'admin_notices' ) );
-			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+			// Late priority: the media modal check in needs_scripts() relies on the screen having
+			// enqueued the media scripts already.
+			add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ), 100 );
 			add_action( 'add_meta_boxes', array( $this, 'add_meta_boxes' ) );
 		}
 	}
 
-	function enqueue_scripts() {
+	function enqueue_scripts( $hook_suffix = '' ) {
+
+		if ( !$this->needs_scripts( $hook_suffix ) ) {
+			return;
+		}
 
 		$physical_file = WR2X_PATH . '/app/vendor.js';
 		$cache_buster = file_exists( $physical_file ) ? filemtime( $physical_file ) : WR2X_VERSION;
@@ -55,6 +61,25 @@ class Meow_WR2X_Admin extends MeowKit_WR2X_Admin {
 		] ) );
 
 		wp_enqueue_script( 'wr2x_perfect_images-index' );
+	}
+
+	// The admin app only mounts on a few screens (see app/js/index.js), so there is no reason
+	// to load it on every admin page.
+	private function needs_scripts( $hook_suffix ) {
+
+		// Perfect Images settings, and the Meow Apps dashboard (which hosts the common dashboard).
+		$page = isset( $_GET['page'] ) ? sanitize_key( $_GET['page'] ) : '';
+		if ( $page === 'wr2x_settings' || $page === 'meowapps-main-menu' ) {
+			return true;
+		}
+
+		// Media Library list (Retina column, Replace Image row action) and the Add Media File
+		// screen (the full-size uploader of the Pro version).
+		if ( in_array( $hook_suffix, [ 'upload.php', 'media-new.php' ], true ) ) {
+			return true;
+		}
+
+		return false;
 	}
 
 	function admin_notices() {
