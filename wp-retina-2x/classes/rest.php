@@ -211,6 +211,12 @@ class Meow_WR2X_Rest
 		if ( empty( $mediaId ) ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => "The Media ID is required." ] );
 		}
+		// Being allowed to upload files says nothing about this particular media, so make sure
+		// the user can actually edit it before replacing anyone's image.
+		$mediaId = (int)$mediaId;
+		if ( get_post_type( $mediaId ) !== 'attachment' || !current_user_can( 'edit_post', $mediaId ) ) {
+			return new WP_REST_Response( [ 'success' => false, 'message' => "You are not allowed to modify this media." ] );
+		}
 		if ( empty( $tmpfname ) ) {
 			return new WP_REST_Response( [ 'success' => false, 'message' => "A file is required." ] );
 		}
@@ -278,7 +284,7 @@ class Meow_WR2X_Rest
 
 
 	function rest_all_settings() {
-		return new WP_REST_Response( [ 'success' => true, 'data' => $this->core->get_all_options() ], 200 );
+		return new WP_REST_Response( [ 'success' => true, 'data' => $this->core->get_options() ], 200 );
 	}
 
 	function find_whereis_command() {
@@ -929,6 +935,9 @@ class Meow_WR2X_Rest
 	}
 
 	function rest_update_option( $request ) {
+		$value = null;
+		$old_options = [];
+		$custom_image_size_changes = [];
 		try {
 			$params = $request->get_json_params();
 			$value = $params['options'];
@@ -941,25 +950,26 @@ class Meow_WR2X_Rest
 			$options = $this->core->update_options( $value );
 			$success = !!$options;
 
-			if ($success && $custom_image_size_changes !== null) {
-				$type = $custom_image_size_changes['type'];
-				$values = $custom_image_size_changes['value'];
-				//TODO: Should use core->add_image_sizes instead
-				$this->core->register_custom_image_size(
-					$type,
-					$values['name'],
-					$values['width'],
-					$values['height'],
-					$values['crop']
-				);
-				$options = $this->core->sanitize_options();
+			if ( $success && !empty( $custom_image_size_changes ) ) {
+				foreach ( $custom_image_size_changes as $change ) {
+					$values = $change['value'];
+					//TODO: Should use core->add_image_sizes instead
+					$this->core->register_custom_image_size(
+						$change['type'],
+						$values['name'],
+						$values['width'],
+						$values['height'],
+						$values['crop']
+					);
+				}
+				$options = $this->core->sanitize_options( $options );
 			}
 
 			$message = __( $success ? 'OK' : "Could not update options.", 'wp-retina-2x' );
 			return new WP_REST_Response([ 'success' => $success, 'message' => $message, 'options' => $options ], 200 );
 		}
 		catch ( Exception $e ) {
-			if ( $custom_image_size_changes !== null ) {
+			if ( !empty( $custom_image_size_changes ) && !empty( $value ) ) {
 				// Rollback the options when the change was custom_image_sizes.
 				$this->core->update_options( array_merge( $value, ['custom_image_sizes' => $old_options ] ) );
 			}
@@ -968,7 +978,7 @@ class Meow_WR2X_Rest
 	}
 
 	function rest_easy_io_unlink( $request ) {
-		$options = $this->core->get_all_options();
+		$options = $this->core->get_options();
 		$options['easyio_domain'] = '';
 		$options['easyio_plan'] = '';
 		$options['webp_force_with_easyio'] = false;
@@ -994,7 +1004,7 @@ class Meow_WR2X_Rest
 			} 
 			else if ( !empty( $result['body'] ) && strpos( $result['body'], 'domain' ) !== false ) {
 				$response = json_decode( $result['body'], true );
-				$options = $this->core->get_all_options();
+				$options = $this->core->get_options();
 				if ( !empty( $response['domain'] ) ) {
 					$options['easyio_domain'] = $response['domain'];
 					if ( !empty( $response['plan_id'] ) ) {

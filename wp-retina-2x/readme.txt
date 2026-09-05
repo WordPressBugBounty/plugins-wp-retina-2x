@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 7.2.0
+Stable tag: 7.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,12 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.2.1 (2026/09/05) =
+* Fix: Custom image sizes were compared by value, so only the first one applied and the crop setting was ignored.
+* Fix: Infinite recursion when saving or repairing options that exhausted memory.
+* Update: Replacing a media file now requires permission to edit media, not just to upload files.
+* Update: Reworked how options are read and written to avoid loops.
 
 = 7.2.0 (2026/09/04) =
 * Add: Option to serve all image URLs through Easy IO or the CDN, not only srcset.

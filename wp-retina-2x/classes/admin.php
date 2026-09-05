@@ -56,7 +56,7 @@ class Meow_WR2X_Admin extends MeowKit_WR2X_Admin {
 			'rest_nonce' => wp_create_nonce( 'wp_rest' ),
 			//'image_sizes' => $this->core->get_image_sizes( ARRAY_A ),
 
-			'options' => $this->core->sanitize_options(), // Ensure all options are sanitized on load
+			'options' => $this->core->get_options(),
 			'image_size_names' => get_intermediate_image_sizes(),
 		] ) );
 

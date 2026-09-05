@@ -16,6 +16,7 @@ class Meow_WR2X_Core {
 	public $lazy = false;
 	public $admin = null;
 	private $engine;
+	private $options = null;
 
 	public function __construct() {
 		global $wr2x_core;
@@ -30,7 +31,6 @@ class Meow_WR2X_Core {
 		$this->engine = new Meow_WR2X_Engine( $this );
 		$wr2x_engine = $this->engine;
 
-		$this->set_defaults();
 		//$this->init();
 		add_action( 'plugins_loaded', array( $this, 'init' ) );
 		include( trailingslashit( WR2X_PATH ) . 'classes/api.php' );
@@ -40,12 +40,11 @@ class Meow_WR2X_Core {
 	}
 
 	function init() {
-		$options = $this->get_all_options();
-		$this->method = $options["method"];
-		$this->retina_sizes = $options['retina_sizes'] ?? array();
-		$this->disabled_sizes = $options['disabled_sizes'] ?? array();
-		$this->webp_sizes = $options['webp_sizes'] ?? array();
-		$this->webp_retina_sizes = $options['webp_retina_sizes'] ?? array();
+		$options = $this->get_options();
+
+		// The options are kept in memory for the request, but they belong to one site: on
+		// multisite, switching blogs has to start from the other site's settings.
+		add_action( 'switch_blog', array( $this, 'reset_options_cache' ) );
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'wp_enqueue_scripts' ) );
 		add_filter( 'generate_rewrite_rules', array( 'Meow_WR2X_Admin', 'generate_rewrite_rules' ) );
@@ -134,45 +133,6 @@ class Meow_WR2X_Core {
 				new Meow_WR2X_Library( $this );
 			}
 		}
-	}
-
-	function set_defaults() {
-		$options = $this->get_all_options();
-		$wr2x_retina_sizes = $options['retina_sizes'] ?? null;
-		$wr2x_disabled_sizes = $options['disabled_sizes'] ?? null;
-		$wr2x_auto_generate = $options['auto_generate'] ?? null;
-		if ( is_null( $this->method ) ) {
-			$options['method'] = 'Responsive';
-			$this->method = 'Responsive';
-		}
-		if ( is_null( $wr2x_auto_generate ) ) {
-			$options['auto_generate'] = true;
-		}
-		if ( is_null( $wr2x_retina_sizes ) ) {
-			$wr2x_retina_sizes = array();
-			// Let's try to get this data from the old option first
-			$wr2x_ignore_sizes = $options['ignore_sizes'];
-			$sizes = $this->get_image_sizes();
-			$large_w = 1024;
-			$large_h = 1024;
-			foreach ( $sizes as $name => $details ) {
-				$w = isset( $details['width'] ) ? $details['width'] : 0;
-				$h = isset( $details['height'] ) ? $details['height'] : 0;
-				if ( ( $w <= $large_w || $w === 9999 ) && ( $h <= $large_h || $h === 9999 ) ) { 
-					array_push( $wr2x_retina_sizes, $name );
-				}
-			}
-			if ( !empty( $wr2x_ignore_sizes ) ) {
-				$wr2x_retina_sizes = array_diff( $wr2x_retina_sizes, array_keys( $wr2x_ignore_sizes ) );
-				$options['ignore_sizes'] = [];
-			}
-			$options['retina_sizes'] = $wr2x_retina_sizes;
-		}
-
-		if ( is_null( $wr2x_disabled_sizes ) ) {
-			$options['disabled_sizes'] = [ 'medium_large' ];
-		}
-		update_option( $this->option_name, $options );
 	}
 
 	function big_image_size_threshold() {
@@ -1394,15 +1354,14 @@ class Meow_WR2X_Core {
 
 	function get_image_sizes( $output_type = OBJECT, $options = null ) {
 		$sizes = array();
-		$options = $options ?? [];
-		$needs_update = false;
-
-		if ( $options == [] ) {
-			$options = $this->get_all_options();
-		}
+		$options = empty( $options ) ? $this->get_options() : $options;
 
 		$webp_enabled = $options['module_webp_enabled'];
 		$retina_enabled = $options['module_retina_enabled'];
+		$disabled_sizes = $options['disabled_sizes'] ?? array();
+		$retina_sizes = $options['retina_sizes'] ?? array();
+		$webp_sizes = $options['webp_sizes'] ?? array();
+		$webp_retina_sizes = $options['webp_retina_sizes'] ?? array();
 
 		global $_wp_additional_image_sizes;
 		foreach ( get_intermediate_image_sizes() as $s ) {
@@ -1420,45 +1379,18 @@ class Meow_WR2X_Core {
 				$crop = intval( get_option( $s . '_crop' ) );
 			}
 
-			// Retina shouldn't be active if the size is disabled
-			$enabled = !in_array( $s, $this->disabled_sizes );
-			$retina = in_array( $s, $this->retina_sizes );
-			if ( !$enabled && $retina ) {
-				$this->retina_sizes = array_diff( $this->retina_sizes, array( $s ) );
-				$options['retina_sizes'] = $this->retina_sizes;
-				$needs_update = true;
-				$retina = false;
-			}
-
-			$webp = false;
-			$webp_retina = false;
-
-			if ( $webp_enabled ) {
-				$webp = in_array( $s, $this->webp_sizes );
-			
-				if ( !$enabled && $webp ) {
-					$this->webp_sizes = array_diff( $this->webp_sizes, array( $s ) );
-					$options['webp_sizes'] = $this->webp_sizes;
-					$needs_update = true;
-					$webp = false;
-				}
-				$webp_retina = in_array( $s, $this->webp_retina_sizes );
-				if ( (!$enabled || !$retina) && $webp_retina ) {
-					$this->webp_retina_sizes = array_diff( $this->webp_retina_sizes, array( $s ) );
-					$options['webp_retina_sizes'] = $this->webp_retina_sizes;
-					$needs_update = true;
-					$webp_retina = false;
-				}
-			}
-
-			
+			// A disabled size has no retina and no webp (sanitize_options keeps the lists clean).
+			$enabled = !in_array( $s, $disabled_sizes );
+			$retina = $enabled && in_array( $s, $retina_sizes );
+			$webp = $webp_enabled && $enabled && in_array( $s, $webp_sizes );
+			$webp_retina = $webp_enabled && $retina && in_array( $s, $webp_retina_sizes );
 
 			$sizes[$s] = array( 
 				'width' => $width, 
 				'height' => $height, 
 				'crop' => $crop,
 				'enabled' => $enabled,
-				'retina_enabled' => $enabled && $retina && $retina_enabled,
+				'retina_enabled' => $retina && $retina_enabled,
 				'retina' => $retina,
 				'webp' => $webp,
 				'webp_retina' => $webp_retina,
@@ -1469,25 +1401,7 @@ class Meow_WR2X_Core {
 
 		// Let's re-add the disabled sizes
 		$disabled_to_add = array();
-		foreach ( $this->disabled_sizes as $size ) {
-			$retina = in_array( $size, $this->retina_sizes );
-			$webp = in_array( $size, $this->webp_sizes );
-			$webp_retina = in_array( $size, $this->webp_retina_sizes );
-			if ( $retina ) {
-				$retina_sizes = array_diff( $this->retina_sizes, array( $size ) );
-				$options['retina_sizes'] = $retina_sizes;
-				$needs_update = true;
-			}
-			if ( $webp ) {
-				$webp_sizes = array_diff( $this->webp_sizes, array( $size ) );
-				$options['webp_sizes'] = $webp_sizes;
-				$needs_update = true;
-			}
-			if ( $webp_retina ) {
-				$webp_retina_sizes = array_diff( $this->webp_retina_sizes, array( $size ) );
-				$options['webp_retina_sizes'] = $webp_retina_sizes;
-				$needs_update = true;
-			}
+		foreach ( $disabled_sizes as $size ) {
 			if ( !array_key_exists( $size, $sizes ) ) {
 				$disabled_to_add[$size] = array( 
 					'enabled' => false,
@@ -1497,9 +1411,6 @@ class Meow_WR2X_Core {
 					'shortname' => Meow_WR2X_Core::size_shortname( $size )
 				);
 			}
-		}
-		if ( $needs_update ) {
-			update_option( $this->option_name, $options );
 		}
 
 		usort( $disabled_to_add, array( $this, 'sizes_sort_func' ) );
@@ -1969,7 +1880,7 @@ class Meow_WR2X_Core {
 			unlink( $logPath );
 		}
 
-		$options = $this->get_all_options();
+		$options = $this->get_options();
 		$options['logs_path'] = null;
 		$this->update_options( $options );
 	}
@@ -1994,7 +1905,7 @@ class Meow_WR2X_Core {
 			if ( !file_exists( $path ) ) {
 				touch( $path );
 			}
-			$options = $this->get_all_options();
+			$options = $this->get_options();
 			$options['logs_path'] = $path;
 			$this->update_options( $options );
 		}
@@ -2002,6 +1913,8 @@ class Meow_WR2X_Core {
 		return $path;
 	}
 
+	// Careful: this reads the plugin options, so it must never be called from get_options(),
+	// sanitize_options() or anything they call, otherwise the two keep calling each other.
 	function log( $data = null ) {
 		if ( !$this->get_option( 'logs' ) ) { return false; }
 		$log_file_path = $this->get_logs_path();
@@ -2426,8 +2339,14 @@ class Meow_WR2X_Core {
 	}
 
 	function get_option( $option, $default = null ) {
-		$options = $this->get_all_options();
+		$options = $this->get_options();
 		return $options[$option] ?? $default;
+	}
+
+	function update_option( $option, $value ) {
+		$options = $this->get_options();
+		$options[$option] = $value;
+		return $this->update_options( $options );
 	}
 
 	function list_options() {
@@ -2507,104 +2426,121 @@ class Meow_WR2X_Core {
 		);
 	}
 
-	function get_all_options() {
-		//delete_option( $this->option_name );
-		$options = get_option( $this->option_name, null );
-		$options = $this->check_options( $options );
+	function reset_options_cache() {
+		$this->options = null;
+	}
 
-		$needs_update = false;
-
-		foreach ( $options as $option => $value ) {
-			if ($option === 'retina_sizes' || $option === 'disabled_sizes'
-				|| $option === 'webp_sizes' || $option === 'webp_retina_sizes'
-			) {
-				
-				if ( !is_array( $value ) ) {
-					$this->log( "⚠️ Option $option is not an array. Resetting it." );
-
-					if ( strpos( $value, ',' ) !== false ) {
-						$this->log( "⚠️ Option $option is a string with commas. Splitting it into an array." );
-						$options[$option] = explode( ',', $value );
-					} else {
-						$options[$option] = array( $value );
+	// Reads the options: what is stored, completed with the defaults and the runtime values.
+	// It never writes, so anything can call it (including update_options) without looping.
+	function get_options() {
+		if ( $this->options === null ) {
+			$options = get_option( $this->option_name, null );
+			if ( !is_array( $options ) ) {
+				// Old installs stored one row per option (wr2x_method, wr2x_quality, etc). Import them once.
+				$options = [];
+				foreach ( array_keys( $this->list_options() ) as $option ) {
+					$legacy = get_option( 'wr2x_' . $option, null );
+					if ( $legacy !== null ) {
+						$options[$option] = $legacy;
+						delete_option( 'wr2x_' . $option );
 					}
-
-					$needs_update = true;
-					continue;
 				}
+				$this->options = $this->sanitize_options( $options );
+				update_option( $this->option_name, $this->options, false );
+			}
+			else {
+				$this->options = $this->sanitize_options( $options );
+			}
+		}
+		// The image sizes are registered later in the request (after_setup_theme for the themes
+		// and for our own custom sizes), so they can't be part of the cache: init() reads the
+		// options on plugins_loaded, and the settings screen would only ever list the core sizes.
+		$options = $this->options;
+		$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
+		return $options;
+	}
 
-				$options[$option] = array_values( $value );
-				continue;
+	// Completes the options with the defaults, fixes the types and keeps them logical.
+	// Pure: it only reads WP (image sizes, lazy loading), it never writes the options.
+	function sanitize_options( $options ) {
+		$options = is_array( $options ) ? $options : [];
+
+		// hide_retina_dashboard is the old name of module_dashboard_enabled.
+		if ( !array_key_exists( 'module_dashboard_enabled', $options ) && array_key_exists( 'hide_retina_dashboard', $options ) ) {
+			$options['module_dashboard_enabled'] = !$options['hide_retina_dashboard'];
+		}
+		$options = array_merge( $this->list_options(), $options );
+
+		// Those are arrays, but older versions could store them as a comma-separated string.
+		foreach ( ['retina_sizes', 'disabled_sizes', 'webp_sizes', 'webp_retina_sizes'] as $option ) {
+			$value = $options[$option];
+			$options[$option] = is_array( $value ) ? array_values( $value )
+				: ( $value === '' || $value === null ? [] : explode( ',', (string)$value ) );
+		}
+
+		// A disabled size has no retina, and a size without retina has no retina webp.
+		$options['retina_sizes'] = array_values( array_diff( $options['retina_sizes'], $options['disabled_sizes'] ) );
+		if ( $options['module_webp_enabled'] ) {
+			$options['webp_sizes'] = array_values( array_diff( $options['webp_sizes'], $options['disabled_sizes'] ) );
+			$options['webp_retina_sizes'] = array_values( array_intersect( $options['webp_retina_sizes'], $options['retina_sizes'] ) );
+		}
+
+		// Both Easy IO and Modern Formats should not be enabled at the same time
+		if ( $options['module_optimize_enabled'] && $options['module_webp_enabled'] ) {
+			if ( !empty( $options['easyio_domain'] ) ) {
+				$options['module_webp_enabled'] = false;
+			} else {
+				$options['module_optimize_enabled'] = false;
 			}
 		}
 
-		$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
+		// Easy IO auto-disables Modern Formats unless user explicitly forces it
+		if ( !empty( $options['easyio_domain'] ) && !$options['webp_force_with_easyio'] ) {
+			$options['module_webp_enabled'] = false;
+		}
 
-		// Update the wp_lazy_loading and wp_auto_sizes options
-		$wp_lazy_loading = [
+		if ( !$options['module_webp_enabled'] ) {
+			$options['webp_full_size'] = false;
+			$options['generate_avif'] = false;
+			$options['webp_auto_generate'] = false;
+			$options['webp_method'] = 'none';
+			// Let's keep the sizes so we can restore them if the module is enabled again
+		}
+
+		// If the AI features are disabled, reset the AI options
+		if ( !$options['module_ai_enabled'] ) {
+			$options['ai_upscale'] = false;
+			$options['ai_retina_full_size'] = false;
+		}
+
+		$options['hide_retina_dashboard'] = !$options['module_dashboard_enabled'];
+
+		// Those are not settings, they are the current state of WordPress, refreshed on every read.
+		$options['wp_lazy_loading'] = [
 			'img' => wp_lazy_loading_enabled( 'img', 'wr2x' ),
 			'iframe' => wp_lazy_loading_enabled( 'iframe', 'wr2x' ),
 			'video' => wp_lazy_loading_enabled( 'video', 'wr2x' ),
 			'picture' => wp_lazy_loading_enabled( 'picture', 'wr2x' ),
 		];
+		$options['wp_auto_sizes'] = function_exists( 'wp_img_tag_add_auto_sizes' ) && function_exists( 'wp_sizes_attribute_includes_valid_auto' );
 
-		$wp_auto_sizes = function_exists( 'wp_img_tag_add_auto_sizes' ) && function_exists( 'wp_sizes_attribute_includes_valid_auto' );
+		// Member variables used all over the plugin.
+		$this->method = $options['method'];
+		$this->retina_sizes = $options['retina_sizes'];
+		$this->disabled_sizes = $options['disabled_sizes'];
+		$this->webp_sizes = $options['webp_sizes'];
+		$this->webp_retina_sizes = $options['webp_retina_sizes'];
 
-		if ( $options['wp_lazy_loading'] !== $wp_lazy_loading ) {
-			$options['wp_lazy_loading'] = $wp_lazy_loading;
-			$needs_update = true;
-		}
+		$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
 
-		if ( $options['wp_auto_sizes'] !== $wp_auto_sizes ) {
-			$options['wp_auto_sizes'] = $wp_auto_sizes;
-			$needs_update = true;
-		}
-
-
-		// Update the options if needed
-		if( $needs_update ) { $this->update_options( $options ); }
-
-		return $options;
-	}
-
-	// Upgrade from the old way of storing options to the new way.
-	function check_options( $options = [] ) {
-		$plugin_options = $this->list_options();
-		$options = empty( $options ) ? [] : $options;
-		$hasChanges = false;
-		foreach ( $plugin_options as $option => $default ) {
-			// The option already exists
-			if ( array_key_exists( $option, $options ) ) {
-					continue;
-			}
-			//$this->log( '⚙️ Option does not exist: ' . $option . '. Adding it.' );
-			// The option does not exist, so we need to add it.
-			// Let's use the old value if any, or the default value.
-			$options[ $option ] = get_option( 'wr2x_' . $option, $default );
-			delete_option( 'wr2x_' . $option );
-			$hasChanges = true;
-		}
-		// Migration: derive module_dashboard_enabled from hide_retina_dashboard
-		if ( !array_key_exists( 'module_dashboard_enabled', $options ) && array_key_exists( 'hide_retina_dashboard', $options ) ) {
-			$options['module_dashboard_enabled'] = !$options['hide_retina_dashboard'];
-			$hasChanges = true;
-		}
-		if ( empty( $options['sizes'] ) ) {
-			$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
-			$hasChanges = true;
-		}
-		if ( $hasChanges ) {
-			update_option( $this->option_name , $options );
-		}
 		return $options;
 	}
 
 	function update_options( $options ) {
-		$old_options = $this->get_all_options();
-		if ( !update_option( $this->option_name, $options, false ) ) {
-			return false;
-		}
-		$options = $this->sanitize_options();
+		$old_options = $this->get_options();
+		$options = $this->sanitize_options( $options );
+		update_option( $this->option_name, $options, false );
+		$this->options = $options;
 		$this->notify_cdn_settings_changed( $old_options, $options );
 		return $options;
 	}
@@ -2626,118 +2562,43 @@ class Meow_WR2X_Core {
 		}
 	}
 
-	function update_option( $option, $value ) {
-		$options = $this->get_all_options();
-		$options[$option] = $value;
-		return $this->update_options( $options );
-	}
-
-	// Validate and keep the options clean and logical.
-	function sanitize_options() {
-		$options = $this->get_all_options();
-
-		// Update member variables.
-		$this->method = $options["method"];
-		$this->retina_sizes = $options['retina_sizes'] ?? array();
-		$this->disabled_sizes = $options['disabled_sizes'] ?? array();
-		$this->webp_sizes = $options['webp_sizes'] ?? array();
-		$this->webp_retina_sizes = $options['webp_retina_sizes'] ?? array();
-
-		$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
-
-		// Keep hide_retina_dashboard in sync with module_dashboard_enabled
-		$options['hide_retina_dashboard'] = !$options['module_dashboard_enabled'];
-
-		// Both Easy IO and Modern Formats should not be enabled at the same time
-		if ( $options['module_optimize_enabled'] && $options['module_webp_enabled'] ) {
-			if ( !empty( $options['easyio_domain'] ) ) {
-				$options['module_webp_enabled'] = false;
-			} else {
-				$options['module_optimize_enabled'] = false;
-			}
-		}
-
-		// Easy IO auto-disables Modern Formats unless user explicitly forces it
-		if ( !empty( $options['easyio_domain'] ) && !$options['webp_force_with_easyio'] ) {
-			$options['module_webp_enabled'] = false;
-		}
-
-		if( !$options['module_webp_enabled'] ) {
-
-			$options['webp_full_size'] = false;
-			$options['generate_avif'] = false;
-			$options['webp_auto_generate'] = false;
-			$options['webp_method'] = 'none';
-
-			// Let's keep the sizes so we can restore them if the module is enabled again
-			//$options['webp_retina_sizes'] = [];
-			//$options['webp_sizes'] = [];
-
-		}
-
-		// If the AI features are disabled, reset the AI options
-		if( !$options['module_ai_enabled'] ) {
-			$options['ai_upscale'] = false;
-			$options['ai_retina_full_size'] = false;
-		}
-
-
-		update_option( $this->option_name, $options, false );
-
-		return $options;
-	}
-
 	// #endregion
 
 	// Custom Image Sizes
+	// Compare the sizes by name. Comparing the values alone used to miss changes (two sizes
+	// swapping their widths looked identical), and only the first change was ever returned.
 	function get_custom_image_size_changes ( $old_options, $new_options ) {
-		$get_diff_one = function ( $name, $options ) {
-			return array_slice( array_filter( $options, function( $option ) use ( $name ) {
-				return $option['name'] === $name;
-			}), 0, 1 )[0];
-		};
+		$old_by_name = array_column( is_array( $old_options ) ? $old_options : [], null, 'name' );
+		$new_by_name = array_column( is_array( $new_options ) ? $new_options : [], null, 'name' );
+		$changes = [];
 
-		// Add or delete
-		if ( count( $new_options ) !== count( $old_options ) ) {
-			$old_option_names = array_column( $old_options, 'name' );
-			$new_option_names = array_column( $new_options, 'name' );
-			return ( count( $new_option_names ) > count( $old_option_names ) )
-				? [
-					'type' => 'add',
-					'value' => $get_diff_one(
-						array_slice( array_diff( $new_option_names, $old_option_names ), 0, 1 )[0],
-						$new_options
-					)
-				]
-				:  [
-					'type' => 'delete',
-					'value' => $get_diff_one(
-						array_slice( array_diff( $old_option_names, $new_option_names ), 0, 1 )[0],
-						$old_options
-					)
-				];
-		}
-		// Update or no change
-		$diff_keys = ['width', 'height', 'crop'];
-		foreach ( $diff_keys as $diff_key ) {
-			$new_values = array_column( $new_options, $diff_key, 'name' );
-			$old_values = array_column( $old_options, $diff_key, 'name' );
-			$diff_values = array_diff( $new_values, $old_values );
-			if ( !empty( $diff_values ) ) {
-				return [
-					'type' => 'update',
-					'value' => $get_diff_one( array_keys( $diff_values )[0], $new_options )
-				];
+		foreach ( $new_by_name as $name => $size ) {
+			if ( !array_key_exists( $name, $old_by_name ) ) {
+				$changes[] = [ 'type' => 'add', 'value' => $size ];
+				continue;
+			}
+			foreach ( [ 'width', 'height', 'crop' ] as $key ) {
+				if ( ( $old_by_name[$name][$key] ?? null ) !== ( $size[$key] ?? null ) ) {
+					$changes[] = [ 'type' => 'update', 'value' => $size ];
+					break;
+				}
 			}
 		}
-		return null;
+
+		foreach ( $old_by_name as $name => $size ) {
+			if ( !array_key_exists( $name, $new_by_name ) ) {
+				$changes[] = [ 'type' => 'delete', 'value' => $size ];
+			}
+		}
+
+		return $changes;
 	}
 
 	function register_custom_image_size ( $type, $name, $width, $height, $crop ) {
 		if ( $type === 'delete' ) {
-			if ( !remove_image_size( $name ) ) {
-				throw new Exception( "Could not remove image size '{$name}'." );
-			}
+			// A failed unregistration is not worth rolling back the whole settings save: the
+			// sizes are registered again from the options on the next request anyway.
+			remove_image_size( $name );
 			return;
 		}
 
@@ -2747,7 +2608,7 @@ class Meow_WR2X_Core {
 			$crop = explode( '-', $crop );
 		}
 
-		add_image_size( $name, $width, $height, false );
+		add_image_size( $name, $width, $height, $crop );
 	}
 
 	private function random_ascii_chars( $length = 8 ) {
