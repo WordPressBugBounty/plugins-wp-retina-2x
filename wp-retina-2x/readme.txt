@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 7.2.1
+Stable tag: 7.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -192,6 +192,9 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
 == Changelog ==
+
+= 7.2.2 (2026/09/14) =
+* Update: Documented the options cache rules covering recursion and frozen image sizes.
 
 = 7.2.1 (2026/09/05) =
 * Fix: Custom image sizes were compared by value, so only the first one applied and the crop setting was ignored.

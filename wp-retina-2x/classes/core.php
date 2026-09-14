@@ -16,6 +16,15 @@ class Meow_WR2X_Core {
 	public $lazy = false;
 	public $admin = null;
 	private $engine;
+
+	// The settings for this request, so a get_option() does not rebuild everything each time.
+	// Two rules, both learned the hard way:
+	//   1. Nothing that reads the options may write them. The reader and the writer calling
+	//      each other is what filled the memory in 7.2.0 (get_options never writes, only
+	//      update_options does, and get_options() is the only way in).
+	//   2. Only stored settings belong in here. Anything computed from the state of WordPress
+	//      (the image sizes above all) has to be recomputed on each read: this cache is filled
+	//      on plugins_loaded, and themes register their sizes later, on after_setup_theme.
 	private $options = null;
 
 	public function __construct() {
@@ -2452,9 +2461,8 @@ class Meow_WR2X_Core {
 				$this->options = $this->sanitize_options( $options );
 			}
 		}
-		// The image sizes are registered later in the request (after_setup_theme for the themes
-		// and for our own custom sizes), so they can't be part of the cache: init() reads the
-		// options on plugins_loaded, and the settings screen would only ever list the core sizes.
+		// Recomputed on every read, never cached: see rule 2 on the $options property. Moving
+		// this line into the cache leaves the settings screen listing only the core sizes.
 		$options = $this->options;
 		$options['sizes'] = $this->get_image_sizes( ARRAY_A, $options );
 		return $options;
