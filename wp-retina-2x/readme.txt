@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 7.2.3
+Stable tag: 7.2.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -191,7 +191,23 @@ Absolutely. Use the built-in Easy IO integration, or enter your own CDN domain i
 
 Yes! Perfect Images lets you disable any registered size—WordPress defaults, theme sizes, plugin sizes—complete control.
 
+== Screenshots ==
+
+1. See every image size WordPress, your theme and your plugins create, turn off the ones you don't need, and add your own.
+2. Regenerate thumbnails and build retina and WebP files in bulk, or one image at a time.
+3. Choose which sizes get a sharp @2x version for retina screens, served through WordPress responsive images.
+4. Convert your images to WebP on your own server, with no external service.
+5. Turn on only the modules you need: image sizes, retina, modern formats and the image tools.
+
 == Changelog ==
+
+= 7.2.5 (2026/10/30) =
+* Fix: Security: Prevent a duplicated attribute from making the HTML parser write an attribute value without quotes.
+
+= 7.2.4 (2026/10/30) =
+* Update: Renamed the WebP/AVIF tab to Modern Formats.
+* Update: Admin scripts now also load on the attachment edit screen.
+* Fix: Transparent PNGs no longer get a black background when converted to WebP or AVIF with GD.
 
 = 7.2.3 (2026/10/10) =
 * Fix: Security: Prevent script injection through crafted text in the page parser.

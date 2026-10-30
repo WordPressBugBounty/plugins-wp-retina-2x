@@ -52,6 +52,8 @@ class Meow_WR2X_Admin extends MeowKit_WR2X_Admin {
 			'prefix' => WR2X_PREFIX,
 			'domain' => WR2X_DOMAIN,
 			'is_pro' => class_exists( 'MeowPro_WR2X_Core' ),
+			// Installed vs latest version for the header line (common/premium/renewal.php).
+			'version_info' => apply_filters( WR2X_PREFIX . '_meowapps_version_info', null ),
 			'is_registered' => !!$this->is_registered(),
 			'rest_nonce' => wp_create_nonce( 'wp_rest' ),
 			//'image_sizes' => $this->core->get_image_sizes( ARRAY_A ),
@@ -76,6 +78,12 @@ class Meow_WR2X_Admin extends MeowKit_WR2X_Admin {
 		// Media Library list (Retina column, Replace Image row action) and the Add Media File
 		// screen (the full-size uploader of the Pro version).
 		if ( in_array( $hook_suffix, [ 'upload.php', 'media-new.php' ], true ) ) {
+			return true;
+		}
+
+		// The attachment edit screen: the Perfect Image meta box (Replace Image) is drawn by the app,
+		// and stays an empty box without it.
+		if ( $hook_suffix === 'post.php' && isset( $_GET['post'] ) && get_post_type( intval( $_GET['post'] ) ) === 'attachment' ) {
 			return true;
 		}
 

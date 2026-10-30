@@ -387,6 +387,10 @@ class Meow_WR2X_Engine {
 							if ( imagecolorstotal($image) > 0 ) {
 								$this->core->log( "⚠️ Converting palette image to true color for {$target_format} conversion." );
 								$newImage = imagecreatetruecolor( imagesx( $image ), imagesy( $image ) );
+								// A new true color canvas is opaque black: keep alpha, or transparent PNGs turn black in WebP/AVIF.
+								imagealphablending( $newImage, false );
+								imagesavealpha( $newImage, true );
+								imagefill( $newImage, 0, 0, imagecolorallocatealpha( $newImage, 0, 0, 0, 127 ) );
 								imagecopy( $newImage, $image, 0, 0, 0, 0, imagesx( $image ), imagesy( $image ) );
 								imagedestroy( $image );
 
