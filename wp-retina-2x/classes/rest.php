@@ -99,6 +99,7 @@ class Meow_WR2X_Rest
 				'orderBy' => array( 'required' => false, 'default' => 'id' ),
 				'order' => array( 'required' => false, 'default' => 'desc' ),
 				'search' => array( 'required' => false ),
+				'formats' => array( 'required' => false ),
 				'offset' => array( 'required' => false ),
 				'order' => array( 'required' => false ),
 				'search' => array( 'required' => false )
@@ -553,7 +554,20 @@ class Meow_WR2X_Rest
 		return count( $this->core->get_optimize_issues( $search ) );
 	}
 
-	function count_all($search) {
+	// Comma-separated mime types (e.g. "image/jpeg,image/png") to a safe SQL condition.
+	function formats_sql( $formats ) {
+		global $wpdb;
+		$formats = array_filter( array_map( 'trim', explode( ',', (string)$formats ) ), function( $f ) {
+			return preg_match( '/^image\/[a-z0-9.+-]+$/', $f );
+		} );
+		if ( empty( $formats ) ) {
+			return '';
+		}
+		$placeholders = implode( ',', array_fill( 0, count( $formats ), '%s' ) );
+		return $wpdb->prepare( "AND p.post_mime_type IN ($placeholders)", array_values( $formats ) );
+	}
+
+	function count_all( $search, $formats = '' ) {
 		global $wpdb;
 		$whereSql = '';
 		if ($search) {
@@ -569,7 +583,8 @@ class Meow_WR2X_Rest
 			WHERE post_type='attachment'
 			AND post_mime_type LIKE 'image/%'
 			$whereSql
-			$excludeSql"
+			$excludeSql
+			" . $this->formats_sql( $formats )
 		);
 	}
 
@@ -616,7 +631,7 @@ class Meow_WR2X_Rest
 	 * @param integer $limit
 	 * @return void
 	 */
-	function get_media_status( $skip = 0, $limit = 10, $filterBy = 'all', $orderBy = 'id', $order = 'desc', $search = '' ) {
+	function get_media_status( $skip = 0, $limit = 10, $filterBy = 'all', $orderBy = 'id', $order = 'desc', $search = '', $formats = '' ) {
 		global $wpdb;
 		$whereIsIn = '';
 		if ( $filterBy !== 'all' ) {
@@ -640,16 +655,28 @@ class Meow_WR2X_Rest
 				$whereIsIn = 'AND p.ID NOT IN (' . implode( ',', $ignored ) . ')';
 			}
 		}
-		$orderSql = 'ORDER BY p.ID DESC';
-		if ($orderBy === 'post_title') {
-			$orderSql = 'ORDER BY post_title ' . ( $order === 'asc' ? 'ASC' : 'DESC' );
-		}
-		else if ($orderBy === 'current_filename') {
-			$orderSql = 'ORDER BY current_filename ' . ( $order === 'asc' ? 'ASC' : 'DESC' );
-		}
+		$whereIsIn .= ' ' . $this->formats_sql( $formats );
+		// Reads the first (top-level) integer for $key from the serialized metadata.
+		// ponytail: SQL parsing of serialized meta; uploads made before WP 6.0 have no filesize and sort as 0.
+		$metaInt = function( $key ) {
+			$needle = '"' . $key . '";i:';
+			// MAX(pm.meta_value) and not the `metadata` alias: MySQL rejects aggregate aliases inside ORDER BY expressions.
+			$meta = 'MAX(pm.meta_value)';
+			return "IF(LOCATE('$needle', $meta) = 0, 0, CAST(SUBSTRING($meta, LOCATE('$needle', $meta) + " . strlen( $needle ) . ") AS UNSIGNED))";
+		};
+		$dir = $order === 'asc' ? 'ASC' : 'DESC';
+		$orderColumns = array(
+			'id' => 'p.ID',
+			'post_title' => 'post_title',
+			'date' => 'p.post_date',
+			'format' => 'p.post_mime_type',
+			'filesize' => $metaInt( 'filesize' ),
+			'dimensions' => $metaInt( 'width' ) . ' * ' . $metaInt( 'height' ),
+		);
+		$orderSql = isset( $orderColumns[$orderBy] ) ? "ORDER BY {$orderColumns[$orderBy]} $dir, p.ID DESC" : 'ORDER BY p.ID DESC';
 		$entries = [];
 		if ( empty( $search ) ) {
-			$sql = $wpdb->prepare( "SELECT p.ID, p.post_title, 
+			$sql = $wpdb->prepare( "SELECT p.ID, p.post_title, p.post_date, p.post_mime_type, 
 				MAX(CASE WHEN pm.meta_key = '_wp_attachment_metadata' THEN pm.meta_value END) AS metadata
 				FROM $wpdb->posts p
 				INNER JOIN $wpdb->postmeta pm ON pm.post_id = p.ID
@@ -664,7 +691,7 @@ class Meow_WR2X_Rest
 			$entries = $wpdb->get_results( $sql );
 		}
 		else {
-			$sql = $wpdb->prepare( "SELECT p.ID, p.post_title, 
+			$sql = $wpdb->prepare( "SELECT p.ID, p.post_title, p.post_date, p.post_mime_type, 
 				MAX(CASE WHEN pm.meta_key = '_wp_attachment_metadata' THEN pm.meta_value END) AS metadata
 				FROM $wpdb->posts p
 				INNER JOIN $wpdb->postmeta pm ON pm.post_id = p.ID
@@ -689,7 +716,7 @@ class Meow_WR2X_Rest
 			$entry->metadata = unserialize( $entry->metadata );
 			$entry->metadata = $this->core->postprocess_metadata( $entry->metadata );
 			$attached_file = get_attached_file( $entry->ID );
-			$entry->filesize = $attached_file ? size_format( filesize( $attached_file ), 2 ) : 0;
+			$entry->filesize = $attached_file && file_exists( $attached_file ) ? size_format( filesize( $attached_file ), 2 ) : 0;
 			$version = get_post_meta( $entry->ID, '_media_version', true );
 			$entry->optimized = get_post_meta( $entry->ID, '_wr2x_optimize', true );
 			$entry->version = (int)$version;
@@ -720,13 +747,14 @@ class Meow_WR2X_Rest
 		$orderBy = trim( $request->get_param('orderBy') );
 		$order = trim( $request->get_param('order') );
 		$search = sanitize_text_field( $request->get_param('search') );
-		$entries = $this->get_media_status( $skip, $limit, $filterBy, $orderBy, $order, $search );
+		$formats = sanitize_text_field( $request->get_param('formats') );
+		$entries = $this->get_media_status( $skip, $limit, $filterBy, $orderBy, $order, $search, $formats );
 		$total = 0;
 		if ( $filterBy == 'ignored' ) {
 			$total = $this->count_ignored($search);
 		}
 		else if ( $filterBy == 'all' ) {
-			$total = $this->count_all($search);
+			$total = $this->count_all( $search, $formats );
 		}
 		return new WP_REST_Response( [ 'success' => true, 'data' => $entries, 'total' => $total ], 200 );
 	}

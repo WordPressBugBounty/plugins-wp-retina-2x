@@ -5,7 +5,7 @@ Donate link: https://www.patreon.com/meowapps
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.1
-Stable tag: 7.2.5
+Stable tag: 7.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,6 +14,8 @@ Optimize image sizes, regenerate thumbnails, enable retina, convert to WebP/AVIF
 == Description ==
 
 **Perfect Images handles the basics of WordPress image management that should have been built-in from the start.** Manage image sizes, disable the ones you don't need, add custom sizes, and regenerate thumbnails in bulk. It's the essential foundation every WordPress install needs for clean, efficient image handling.
+
+https://www.youtube.com/watch?v=fe-fy8h1dbQ
 
 Think of it as your image management base layer. WordPress creates too many sizes? Disable them. Need a custom thumbnail size? Add it. Want retina support or modern formats like WebP/AVIF? Enable those modules. Perfect Images gives you complete control without bloat.
 
@@ -200,6 +202,15 @@ Yes! Perfect Images lets you disable any registered size—WordPress defaults, t
 5. Turn on only the modules you need: image sizes, retina, modern formats and the image tools.
 
 == Changelog ==
+
+= 7.2.6 (2026/11/10) =
+* Add: Optional dynamic filters in Image Tools to narrow the media list by date, size, format and dimension.
+* Add: Pause and resume for the thumbnails regeneration, with per image details and a recap once it ends.
+* Update: Stopping the thumbnails regeneration now ends cleanly instead of leaving the task running.
+* Fix: Image Tools no longer crashes with "t.map is not a function" when the media list fails to load, and now shows the actual error.
+* 🎵 Discuss with others about Wp Retina 2x on [the Discord](https://discord.gg/bHDGh38).
+* 🌴 Keep us motivated with [a little review here](https://wordpress.org/support/plugin/wp-retina-2x/reviews/). Thank you!
+* 🥰 If you want to help us, check our [Patreon](https://www.patreon.com/meowapps). Thank you!
 
 = 7.2.5 (2026/10/30) =
 * Fix: Security: Prevent a duplicated attribute from making the HTML parser write an attribute value without quotes.

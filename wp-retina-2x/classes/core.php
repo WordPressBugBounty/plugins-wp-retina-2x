@@ -864,6 +864,8 @@ class Meow_WR2X_Core {
 		$entry = new stdClass();
 		$entry->ID = $mediaId;
 		$entry->post_title = get_the_title( $mediaId );
+		$entry->post_date = get_post_field( 'post_date', $mediaId );
+		$entry->post_mime_type = get_post_mime_type( $mediaId );
 		$entry->metadata = wp_get_attachment_metadata( $mediaId, true );
 		$entry->metadata = $this->postprocess_metadata( $entry->metadata );
 		$entry->info = $this->retina_info( $mediaId, ARRAY_A );
@@ -872,7 +874,7 @@ class Meow_WR2X_Core {
 		$entry->thumbnail_url = wp_get_attachment_thumb_url( $mediaId );
 		$entry->url = wp_get_attachment_url( $mediaId );
 		$attached_file = get_attached_file( $mediaId );
-		$entry->filesize = $attached_file ? size_format( filesize( $attached_file ), 2 ) : 0;
+		$entry->filesize = $attached_file && file_exists( $attached_file ) ? size_format( filesize( $attached_file ), 2 ) : 0;
 		$version = get_post_meta( $mediaId, '_media_version', true );
 		$entry->version = (int)$version;
 		$entry->optimized = get_post_meta( $mediaId, '_wr2x_optimize', true );
